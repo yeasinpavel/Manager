@@ -4,6 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Personal Business Manager Pro</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js')
+          .then(() => console.log("Service Worker Registered"));
+      }
+    </script>
+
     <style>
         :root { --red: #ff4d4d; --green: #2ecc71; --dark: #2c3e50; --light: #f4f7f6; --blue: #3498db; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--light); margin: 0; padding-bottom: 60px; }
@@ -133,7 +142,6 @@
         }
     }
 
-    // --- WALLET ---
     function addWalletEntry() {
         const id = document.getElementById('w-edit-id').value;
         const entry = {
@@ -166,7 +174,6 @@
         };
     }
 
-    // --- SALES ---
     function addSale() {
         const id = document.getElementById('s-edit-id').value;
         const type = document.getElementById('s-type').value;
@@ -230,7 +237,6 @@
         tx.oncomplete = () => refreshAll();
     }
 
-    // --- EXPENSES ---
     function addExpense() {
         const id = document.getElementById('e-edit-id').value;
         const exp = {
@@ -261,7 +267,6 @@
         };
     }
 
-    // --- RENDER ---
     function refreshAll() {
         renderWallet();
         renderSales();
@@ -315,23 +320,17 @@
         const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
         const now = new Date();
         document.getElementById('report-month-title').innerText = monthNames[now.getMonth()] + " " + now.getFullYear();
-
         let dailyData = {};
         let tSale = 0, tProfit = 0, tExp = 0;
-
         db.transaction("sales").objectStore("sales").getAll().onsuccess = e => {
             e.target.result.forEach(s => {
                 if(!dailyData[s.date]) dailyData[s.date] = { sale: 0, profit: 0, exp: 0, details: [] };
                 const buy = s.buy || 0; const sell = s.sell || 0; const disc = s.discount || 0;
                 const p = s.status === 'Returned' ? (0 - buy) : (sell - buy - disc);
-                
                 if(s.status !== 'Returned') { tSale += sell; dailyData[s.date].sale += sell; }
                 tProfit += p; dailyData[s.date].profit += p;
-                
-                // Add Sale + Profit to detail text
                 dailyData[s.date].details.push(`<b>Sale:</b> ${s.customer} | Price: ${sell} | Profit: ${p.toFixed(2)} (${s.status})`);
             });
-
             db.transaction("expenses").objectStore("expenses").getAll().onsuccess = e => {
                 e.target.result.forEach(ex => {
                     const amt = ex.amount || 0;
@@ -339,12 +338,10 @@
                     tExp += amt; dailyData[ex.date].exp += amt;
                     dailyData[ex.date].details.push(`<b>Expense:</b> ${ex.note} | Amount: -${amt}`);
                 });
-
                 document.getElementById('rep-total-sale').innerText = "Total Sale: " + tSale.toFixed(2);
                 document.getElementById('rep-total-profit').innerText = "Total Profit: " + tProfit.toFixed(2);
                 document.getElementById('rep-total-expense').innerText = "Total Expenses: " + tExp.toFixed(2);
                 document.getElementById('rep-net').innerText = "Net Profit: " + (tProfit - tExp).toFixed(2);
-
                 const hist = document.getElementById('report-history'); hist.innerHTML = '';
                 Object.keys(dailyData).sort().reverse().forEach(date => {
                     const d = dailyData[date];
