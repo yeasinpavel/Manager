@@ -213,26 +213,12 @@
     }
 
     function handleAction(id, action) {
-        const tx = db.transaction(["sales", "expenses"], "readwrite");
-        tx.objectStore("sales").get(id).onsuccess = e => {
+        const tx = db.transaction("sales", "readwrite");
+        const store = tx.objectStore("sales");
+        store.get(id).onsuccess = e => {
             const sale = e.target.result;
-            if (action === 'Paid' && sale.type === 'Due') {
-                const paid = prompt(`Original Sale: ${sale.sell}. How much received?`, sale.sell);
-                if(paid === null) return;
-                const diff = sale.sell - parseFloat(paid);
-                sale.discount = diff > 0 ? diff : 0;
-                sale.status = 'Paid';
-            } else if (sale.type === 'Condition') {
-                const charge = prompt("Condition Charge amount? (Expense)", "0");
-                if(charge === null) return;
-                if(parseFloat(charge) > 0) {
-                    tx.objectStore("expenses").add({ amount: parseFloat(charge), note: `Charge: ${sale.customer}`, date: sale.date });
-                }
-                sale.status = action;
-            } else {
-                sale.status = action;
-            }
-            tx.objectStore("sales").put(sale, id);
+            sale.status = action;
+            store.put(sale, id);
         };
         tx.oncomplete = () => refreshAll();
     }
@@ -301,7 +287,7 @@
             if(c) {
                 const i = c.value; const isRed = (i.status === 'Pending' || i.status === 'Returned');
                 if(filter === 'Pending' && !isRed) { c.continue(); return; }
-                const p = i.status === 'Returned' ? (0 - (i.buy || 0)) : ((i.sell || 0) - (i.buy || 0) - (i.discount || 0));
+                const p = i.status === 'Returned' ? (0 - (i.buy || 0)) : ((i.sell || 0) - (i.buy || 0));
                 list.innerHTML += `<div class="item-row" style="border-left:5px solid ${isRed?'var(--red)':'var(--green)'}">
                     <div><b>${i.customer}</b> (${i.type})<br><small>${i.date} | Profit: ${p.toFixed(2)}</small></div>
                     <div style="text-align:right">
@@ -325,8 +311,8 @@
         db.transaction("sales").objectStore("sales").getAll().onsuccess = e => {
             e.target.result.forEach(s => {
                 if(!dailyData[s.date]) dailyData[s.date] = { sale: 0, profit: 0, exp: 0, details: [] };
-                const buy = s.buy || 0; const sell = s.sell || 0; const disc = s.discount || 0;
-                const p = s.status === 'Returned' ? (0 - buy) : (sell - buy - disc);
+                const buy = s.buy || 0; const sell = s.sell || 0;
+                const p = s.status === 'Returned' ? (0 - buy) : (sell - buy);
                 if(s.status !== 'Returned') { tSale += sell; dailyData[s.date].sale += sell; }
                 tProfit += p; dailyData[s.date].profit += p;
                 dailyData[s.date].details.push(`<b>Sale:</b> ${s.customer} | Price: ${sell} | Profit: ${p.toFixed(2)} (${s.status})`);
